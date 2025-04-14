@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ClickHouse ↔ Flat File Ingestion Tool</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 2rem;
+      background-color: #f8f9fa;
+    }
+
+    h2 {
+      color: #343a40;
+    }
+
+    .container {
+      background-color: #fff;
+      padding: 2rem;
+      border-radius: 8px;
+      max-width: 900px;
+      margin: auto;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    }
+
+    .section {
+      margin-bottom: 2rem;
+    }
+
+    label {
+      display: block;
+      margin: 0.5rem 0 0.2rem;
+      font-weight: bold;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 0.6rem;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    input[type="checkbox"] {
+      width: auto;
+      margin-right: 0.5rem;
+    }
+
+    button {
+      padding: 0.6rem 1.2rem;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 1rem;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    .status {
+      margin-top: 1rem;
+      font-style: italic;
+      color: #17a2b8;
+    }
+
+    .columns {
+      display: flex;
+      flex-wrap: wrap;
+    }
+
+    .column-item {
+      width: 150px;
+    }
+
+    .preview {
+      background: #f1f1f1;
+      padding: 1rem;
+      font-family: monospace;
+      margin-top: 1rem;
+      max-height: 200px;
+      overflow: auto;
+    }
+
+    /* Progress Bar */
+    #progress-container {
+      background: #e0e0e0;
+      height: 20px;
+      width: 100%;
+      border-radius: 10px;
+      margin-top: 1rem;
+    }
+
+    #progress-bar {
+      height: 100%;
+      width: 0%;
+      background: #007bff;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>ClickHouse ↔ Flat File Ingestion Tool</h2>
+
+    <div class="section">
+      <label>Source Type</label>
+      <select id="source-type">
+        <option value="clickhouse">ClickHouse</option>
+        <option value="flatfile">Flat File (CSV)</option>
+      </select>
+    </div>
+
+    <div class="section" id="clickhouse-config">
+      <label>Host</label>
+      <input id="ch-host" type="text" placeholder="localhost">
+      <label>Port</label>
+      <input id="ch-port" type="text" placeholder="8123">
+      <label>Database</label>
+      <input id="ch-db" type="text" placeholder="default">
+      <label>User</label>
+      <input id="ch-user" type="text" placeholder="default">
+      <label>JWT Token</label>
+      <input id="ch-token" type="text" placeholder="paste JWT token">
+      <button onclick="loadTables()">Connect & Load Tables</button>
+    </div>
+
+    <div class="section" id="flatfile-config" style="display: none;">
+      <label>Upload CSV File</label>
+      <input id="csv-file" type="file">
+      <label>Delimiter</label>
+      <input id="csv-delimiter" type="text" value="," />
+      <button onclick="uploadCSV()">Upload CSV</button>
+    </div>
+
+    <div class="section">
+      <label>Table</label>
+      <select id="table-select" onchange="loadColumns()">
+        <option value="">-- Select --</option>
+      </select>
+
+      <label>Join Condition (for multi-table ingestion)</label>
+      <input id="join-condition" type="text" placeholder="e.g. table1.id = table2.id">
+
+      <div id="columns-section">
+        <label>Columns</label>
+        <div class="columns" id="column-list"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <button onclick="previewData()">Preview</button>
+      <button onclick="startIngestion()">Start Ingestion</button>
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="section">
+      <label>Preview (First 100 Records)</label>
+      <div class="preview" id="preview-box">No data yet.</div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div id="progress-container">
+      <div id="progress-bar"></div>
+    </div>
+  </div>
+
+  <script>
+    const statusBox = document.getElementById('status');
+
+    document.getElementById('source-type').addEventListener('change', function () {
+      const ch = document.getElementById('clickhouse-config');
+      const ff = document.getElementById('flatfile-config');
+      if (this.value === 'clickhouse') {
+        ch.style.display = 'block';
+        ff.style.display = 'none';
+      } else {
+        ch.style.display = 'none';
+        ff.style.display = 'block';
+      }
+    });
+
+    function loadTables() {
+      statusBox.textContent = 'Connecting and loading tables...';
+      // Simulate API call
+      setTimeout(() => {
+        const tableSelect = document.getElementById('table-select');
+        tableSelect.innerHTML = `<option>uk_price_paid</option><option>ontime</option>`;
+        statusBox.textContent = 'Tables loaded.';
+      }, 1000);
+    }
+
+    function uploadCSV() {
+      statusBox.textContent = 'Uploading file...';
+      const file = document.getElementById('csv-file').files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+      fetch('/upload', {
+        method: 'POST',
+        body: formData
+      }).then(res => res.text()).then(data => {
+        statusBox.textContent = 'File uploaded successfully!';
+        // Simulate column discovery
+        const columns = ['id', 'name', 'value'];
+        const colList = document.getElementById('column-list');
+        colList.innerHTML = columns.map(c => `
+          <label class="column-item"><input type="checkbox" value="${c}" /> ${c}</label>
+        `).join('');
+      }).catch(err => {
+        statusBox.textContent = 'Upload failed.';
+        console.error(err);
+      });
+    }
+
+    function loadColumns() {
+      statusBox.textContent = 'Loading columns...';
+      // Simulate API response
+      setTimeout(() => {
+        const columns = ['column1', 'column2', 'column3'];
+        const colList = document.getElementById('column-list');
+        colList.innerHTML = columns.map(c => `
+          <label class="column-item"><input type="checkbox" value="${c}" /> ${c}</label>
+        `).join('');
+        statusBox.textContent = 'Columns loaded.';
+      }, 1000);
+    }
+
+    function previewData() {
+      statusBox.textContent = 'Previewing data...';
+      document.getElementById('preview-box').textContent = 'id,name,value\n1,Alice,100\n2,Bob,200\n3,Charlie,300';
+      statusBox.textContent = 'Preview complete.';
+    }
+
+    function startIngestion() {
+      const selectedColumns = Array.from(document.querySelectorAll('#column-list input:checked'))
+        .map(cb => cb.value);
+      statusBox.textContent = 'Ingesting data...';
+      // Simulate ingestion with progress
+      let progress = 0;
+      const progressBar = document.getElementById('progress-bar');
+      const interval = setInterval(() => {
+        progress += 10;
+        progressBar.style.width = progress + '%';
+        if (progress >= 100) {
+          clearInterval(interval);
+          statusBox.textContent = `Ingestion complete! Records processed: 1500`;
+        }
+      }, 500);
+    }
+  </script>
+</body>
+</html>
